@@ -138,3 +138,6 @@ export const HUD_PAUSE_BUTTON_SIZE = 20;
 
 export const RANDOM_SIGN_VALUES: readonly number[] = [-1.2, -1, 1, 1.2];
 export const RANDOM_SPAWN_SCALE_VALUES: readonly number[] = [0.3, 0.6, 0.8, 0.9, 1.2];
+
+// Debug / profiling overlays
+export const SHOW_ENEMY_HP = false;

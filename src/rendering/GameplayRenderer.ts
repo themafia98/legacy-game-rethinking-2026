@@ -14,6 +14,7 @@ import {
   SPRITE_BOSS_DEATH, SPRITE_BOSS_DEATH_FRAMES,
   SPRITE_BOSS_EXTRA_DEATH,
   SPRITE_COIN, SPRITE_FOOD, SPRITE_SCROLL,
+  SHOW_ENEMY_HP,
 } from '../core/GameConfig';
 import { SimMemory, ENEMY_TYPE_BOSS, ENEMY_TYPE_BOSS_EXTRA, MAX_ENEMIES, MAX_PROJECTILES, MAX_ITEMS } from '../wasm/SimMemory';
 import { GameSimulator } from '../wasm/GameSimulator';
@@ -85,19 +86,21 @@ export class GameplayRenderer {
       const clampedIdx = Math.min(Math.floor(frameIdx), frames.length - 1);
       const frameX = sprite.x + (frames[clampedIdx] ?? 0) * sprite.w;
 
-      if (!onDeath) {
+      if (!onDeath && SHOW_ENEMY_HP) {
         this.renderer.drawText({
           text: `${mem.getEnemyHealth(i)}HP`,
           x: x - 5, y: y - 5,
           font: 'bold 12px Arial',
           fillStyle: 'red',
         });
-        // Advance idle frame index
-        void dt;
-      } else {
+      }
+
+      if (onDeath) {
         // Advance death frame each ~10 ticks
         sim.advanceDeathFrame(i);
       }
+
+      void dt;
 
       this.renderer.drawSprite({
         image: sheet,

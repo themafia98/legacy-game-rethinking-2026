@@ -102,6 +102,7 @@ Look at:
 For this project specifically:
 
 - check whether `GameplayRenderer.renderAllEnemies()` dominates JS time
+- compare traces with `SHOW_ENEMY_HP = false` and `SHOW_ENEMY_HP = true`
 - check whether repeated text drawing for enemy HP becomes expensive in dense waves
 - check whether canvas paint cost overtakes wasm simulation cost
 
