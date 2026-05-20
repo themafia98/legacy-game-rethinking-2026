@@ -1,0 +1,18 @@
+{
+  "targets": {
+    "release": {
+      "optimizeLevel": 3,
+      "shrinkLevel": 1,
+      "outFile": "public/game.wasm"
+    },
+    "debug": {
+      "debug": true,
+      "outFile": "public/game.wasm"
+    }
+  },
+  "options": {
+    "exportRuntime": false,
+    "runtime": "stub",
+    "noAssert": false
+  }
+}

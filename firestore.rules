@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+
+      // Anyone can read leaderboard entries
+      allow read: if true;
+
+      // Anyone can submit a score, but the shape and types are validated
+      allow create: if request.resource.data.keys().hasAll(['name', 'points', 'id', 'ip', 'realPlayer'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() >= 1
+                    && request.resource.data.name.size() <= 11
+                    && request.resource.data.points is number
+                    && request.resource.data.points >= 0
+                    && request.resource.data.realPlayer == true;
+
+      // No client-side updates or deletes
+      allow update, delete: if false;
+    }
+
+  }
+}

@@ -1,3 +1,15 @@
 
 /node_modules
 node_modules
+yarn.lock
+
+# Firebase service account key — NEVER commit
+*firebase-adminsdk*.json
+
+# Local env with real Firebase keys
+.env
+
+# Build output
+
+# Build output
+/dist

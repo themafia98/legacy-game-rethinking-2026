@@ -1,0 +1,135 @@
+@font-face {
+  font-family: 'PIXI';
+  src: url('../font/SHPinscher-Regular.otf');
+}
+
+:root {
+  --shadow-canvas: 0 0 15px grey;
+  --border-input: 2px solid black;
+  --border-canvas: 3px solid black;
+  --bg-body: url('../img/frame_background.png');
+  --bg-modal: url('../img/modal_background.jpg');
+  --border-modal-image: url('../img/box.png') 60 round;
+  --input-bg: rgb(255, 212, 128);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-image: var(--bg-body);
+}
+
+canvas {
+  display: none;
+  box-shadow: var(--shadow-canvas);
+  position: absolute;
+  border: var(--border-canvas);
+  inset: 0;
+  margin: auto;
+}
+
+.canvasInit {
+  display: block;
+}
+
+.scale {
+  transform: scale(0.9);
+}
+
+.background-modal {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
+
+  & .modal-window {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 500px;
+    height: 250px;
+    border: 30px solid red;
+    border-image: var(--border-modal-image);
+    background-image: var(--bg-modal);
+    opacity: 0.9;
+  }
+}
+
+.center {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  & .name {
+    position: absolute;
+    width: 50%;
+    margin: auto;
+    border-radius: 8px;
+    text-align: center;
+    background: var(--input-bg);
+    font-weight: 600;
+    font-size: 25px;
+    font-family: 'PIXI';
+    border: var(--border-input);
+    left: 25%;
+    top: 35%;
+  }
+
+  & .btnName {
+    background: var(--input-bg);
+    font-weight: 600;
+    font-size: 25px;
+    font-family: 'PIXI';
+    border: var(--border-input);
+    width: 25%;
+    position: absolute;
+    border-radius: 5px;
+    border-color: black;
+    left: 25%;
+    top: 50%;
+  }
+
+  & .cancelName {
+    background: var(--input-bg);
+    font-weight: 600;
+    font-size: 25px;
+    font-family: 'PIXI';
+    border: var(--border-input);
+    width: 25%;
+    position: absolute;
+    border-radius: 5px;
+    border-color: black;
+    left: 51%;
+    top: 50%;
+  }
+
+  & .btnName:hover,
+  & .cancelName:hover {
+    cursor: pointer;
+    color: red;
+  }
+}
+
+@media (max-width: 740px) {
+  .background-modal .modal-window {
+    width: 55%;
+  }
+
+  .center .name,
+  .center .btnName,
+  .center .cancelName {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 450px) {
+  .center .name,
+  .center .btnName,
+  .center .cancelName {
+    font-size: 13px;
+  }
+}

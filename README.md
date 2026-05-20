@@ -1,16 +1,285 @@
-# My graduation project from IT courses.
-## Legacy project development in start 2019 year, my first work
-#### What i use
-* Firebase
-* IP detected API
-* Web audio API
-* Canvas (2D)
-* MVC / OOP
-* WEBPACK
-* ES5 (some ES6)
-***
-[looking here](https://themafia98.github.io/actionGame-js/).
-***
-Build in gh-pages
+# ARENA — Legacy Game Rethinking (2026)
 
-will update
+> A 2019 JavaScript canvas game, fully redesigned in 2026 as a professional TypeScript project.  
+> Not a rewrite. A rethinking.
+
+---
+
+## Origin
+
+In 2019, this game was a graduation project from an IT course — a first real attempt at building something interactive with JavaScript. It worked. Enemies moved, bullets flew, scores were saved to Firebase. For a first project, it was a real achievement.
+
+But the code reflected exactly what it was: a learning exercise. God classes, mutable globals, magic numbers, broken variable names (`bull`, `gamer`, `enemys`, `linki`, `requst`), a canvas element recreated on every single frame, collision detection living inside an audio handler, Firebase writes triggered from inside damage calculations.
+
+Seven years later, this project was taken apart and rebuilt from scratch — not to make it "cleaner" in a superficial sense, but to answer a specific question:
+
+**What would this game look like if it were written by someone who understands game architecture?**
+
+---
+
+## Philosophy
+
+The reference point was not "better JavaScript" or "TypeScript with types bolted on."  
+The reference point was a clean, focused **C++ indie game codebase** — the kind of discipline you find in professionally written game engines and small studios.
+
+That means:
+
+- **Systems own their responsibilities.** A collision system detects collisions. It does not play sounds, spawn items, update scores, or write to a database.
+- **Entities are data.** `PlayerEntity` is a plain data container. It holds sprite animation state. It does not update itself, render itself, or know about audio.
+- **The renderer is the only thing that touches the canvas.** No entity, system, or game logic calls `ctx.drawImage` or `ctx.fillRect`. Ever.
+- **The simulation hot-path runs in WebAssembly.** Player movement, projectile physics, enemy AI, collision detection, item pickups, and combat resolution all run inside a WASM module compiled from AssemblyScript. The renderer and all browser APIs stay in JS.
+- **The game loop is deterministic.** One `GameLoop` drives `update(dt)` → `simulate()` → `render()`. Nothing else mutates state during a frame.
+- **Dependencies are explicit.** Every system receives what it needs through its constructor or function arguments. No hidden globals, no module-level singletons with implicit state.
+- **Configuration is centralized.** Every magic number — sprite coordinates, speeds, health values, bounds, drop chances, stage thresholds — lives in `GameConfig.ts` with a meaningful name.
+
+---
+
+## What Changed
+
+### Original problems (2019)
+
+| Problem | File | Impact |
+|---|---|---|
+| `GameModel.js` contained: DB, API, Audio, UI, Game, Loader, Player, Enemy, Sprite, Items | `GameModel.js` | One file owned everything |
+| Canvas buffer created with `createElement('canvas')` on every frame | `GameView.js` | GC pressure every 16ms |
+| Audio playback used `.find()` on an array on every shot/hit/pickup | `GameModel.js` | O(n) hot path lookup |
+| Game state was a raw mutable string `game.about.state === 'play'` | everywhere | Typo-prone, no transitions |
+| Firebase writes triggered from inside collision detection | `headlerModal.js` | Side effects in simulation |
+| `gamer.move.pos[0, 1]++` — comma operator bug | `headlerModal.js` | Silent wrong behavior |
+| `Vector` used but never imported — relied on a global script tag | `headlerModal.js` | Fragile implicit dependency |
+| `Player.Win()` contained `debugger;` | `GameModel.js` | Forgotten debug artifact |
+| Assets loaded with a 3-second `setTimeout` before game start | `init.js` | Race condition by design |
+| All simulation ran as JS heap objects — new Vector2 per entity per frame | everywhere | GC pressure in hot path |
+
+---
+
+## Architecture
+
+```
+assembly/                    — WebAssembly simulation core (AssemblyScript)
+├── index.ts                 — exports: seedRng, initPlayer, initEnemies, simulate
+├── memory.ts                — layout constants: offsets, strides, event/input flag bits
+├── rng.ts                   — Xorshift32 PRNG (no Math.random() in WASM)
+├── collision.ts             — @inline testAABB — zero-alloc AABB test
+├── player.ts                — input → position → arena clamp
+├── projectiles.ts           — move, cull, tryFire with rate limiting
+├── enemies.ts               — bounce, projectile lifecycle, contact damage
+├── combat.ts                — projectile vs enemy AABB, death, item drops
+└── items.ts                 — pickup AABB, stat application (coin / food / scroll)
+
+src/
+├── core/
+│   ├── GameLoop.ts          — rAF loop, delta-time clamping, start/stop lifecycle
+│   ├── SceneManager.ts      — typed state machine with validated transitions
+│   └── GameConfig.ts        — every constant, coordinate, speed, threshold in one place
+│
+├── math/
+│   ├── Vector2.ts           — immutable 2D vector: add, scale, normalize, dot, length
+│   └── Rect.ts              — AABB rect
+│
+├── types/
+│   ├── GameScene.ts         — enum GameScene + valid transition map
+│   ├── EntityTypes.ts       — EnemyType, ItemType, SpriteState, SpriteDirection
+│   ├── AssetTypes.ts        — ImageKey enum, SoundId enum, GameData interface
+│   └── LeaderboardTypes.ts  — LeaderboardEntry, ScoreSubmission
+│
+├── assets/
+│   ├── AssetLoader.ts       — Promise.all image loading, game data fetch
+│   └── AssetStore.ts        — typed map of loaded images, owned for lifetime of app
+│
+├── audio/
+│   └── AudioManager.ts      — Web Audio API; Map<SoundId, AudioBuffer>; O(1) playback
+│
+├── input/
+│   └── InputManager.ts      — keyboard + mouse state, consume-once fire/escape
+│
+├── entities/
+│   └── PlayerEntity.ts      — sprite animation state only (position/stats in WASM)
+│
+├── systems/
+│   ├── PlayerSystem.ts      — sprite direction from input keys (visual only)
+│   └── SpawnSystem.ts       — wave logic, writes enemy data to WASM staging area
+│
+├── wasm/
+│   ├── SimMemory.ts         — TypedArray views on shared WebAssembly.Memory
+│   └── GameSimulator.ts     — instantiateStreaming, wraps WASM exports, exposes simulate()
+│
+├── rendering/               — the only code that may call the canvas API
+│   ├── Renderer.ts          — owns canvas + double-buffer (created once at startup)
+│   ├── SpriteAnimator.ts    — frame index calculation from SpriteState
+│   ├── GameplayRenderer.ts  — reads entity state from SimMemory (not JS objects)
+│   ├── HUDRenderer.ts       — health bar, score, level, pause button
+│   ├── MenuRenderer.ts      — main menu
+│   ├── PauseRenderer.ts     — pause overlay with stats
+│   ├── GameOverRenderer.ts  — game over / win screen
+│   ├── RatingRenderer.ts    — leaderboard table
+│   ├── FadeRenderer.ts      — start animation fade-in
+│   └── ArenaRenderer.ts     — arena floor, gates animation
+│
+├── services/
+│   ├── FirebaseService.ts   — Firestore v10 modular: submit score, subscribe leaderboard
+│   └── NetworkService.ts    — IP fetch and localStorage cache
+│
+├── ui/
+│   └── NameInputModal.ts    — DOM modal for name entry, Promise-based
+│
+├── game/
+│   ├── WaveManager.ts       — stage counter, boss/extra-boss count progression
+│   └── Game.ts              — drives update/render pipeline; one simulate() call per frame
+│
+└── main.ts                  — bootstrap: load assets + WASM in parallel, wire and start
+```
+
+---
+
+## Architectural Decisions Explained
+
+### Simulation Core in WebAssembly
+
+The original game ran all simulation logic as plain JS objects: every entity was a JS heap object, every `Vector2` operation produced a new garbage-collected object, and every frame created and discarded dozens of short-lived values.
+
+The 2026 version moves the entire simulation hot-path into a WebAssembly module written in AssemblyScript. All entity state lives in a single flat `ArrayBuffer`:
+
+```
+WebAssembly.Memory (1 page = 64 KB, shared between WASM and JS)
+├─ [0..63]        Player state      (64 bytes)
+├─ [64..5183]     Enemy pool        (80 B × 64 slots)
+├─ [5184..7231]   Projectile pool   (32 B × 64 slots)
+├─ [7232..11327]  Item pool         (16 B × 256 slots)
+└─ [11328..]      Result buffer + enemy staging area
+```
+
+JS holds `Float32Array` / `Int32Array` / `Uint8Array` views on the same buffer. There is zero serialisation and zero copying between the two sides — both read and write the same bytes. The entire simulation is one call per frame:
+
+```typescript
+const result = simulator.simulate(inputFlags, mouseX, mouseY, dt, now);
+// result.eventFlags carries EVT_DAMAGE | EVT_ENEMY_DIED | EVT_ITEM_PICKED | EVT_PLAYER_DEAD
+```
+
+The WASM module uses `runtime: "stub"` — no GC, no heap allocator. All data is at fixed offsets in linear memory. The PRNG is Xorshift32 seeded from `performance.now()` (WASM has no `Math.random()`). The release build is ~3 KB.
+
+---
+
+### Double-buffer canvas created once
+
+The original `Draw.building()` called `document.createElement('canvas')` and recreated the entire off-screen canvas every frame — ~60 times per second.
+
+`Renderer` creates one buffer canvas in its constructor. `beginFrame()` clears it. `commitFrame()` blits it to the main canvas. The canvas object lives for the entire application lifetime.
+
+---
+
+### Audio is a `Map`, not a scanned array
+
+The original code stored sounds in a plain array and called `.find(item => item.name === 'shot')` on every shot, hit, pickup, and death.
+
+`AudioManager` stores decoded `AudioBuffer` objects in a `Map<SoundId, AudioBuffer>`. Playback is a single hash map lookup. O(1) always.
+
+---
+
+### `GameScene` enum + `SceneManager`
+
+The original code had `game.about.state` as a raw mutable string compared inline across five different files.
+
+`GameScene` is a TypeScript enum. `SceneManager.transitionTo()` validates the transition against a declared map of allowed transitions. The compiler catches typos at build time.
+
+---
+
+### Entities are data, systems are functions
+
+In the original code, entities called methods on themselves: `gamer.GameOver(gamer, game, load, sound)`. The player knew about the audio system, the game state, and the loader.
+
+In the refactored code, `PlayerEntity` holds only sprite animation state (direction, frame). Position, health, and all stats are authoritative in WASM. `Game.syncPlayerFromWasm()` copies them back to `PlayerEntity` each frame so the renderer has what it needs.
+
+---
+
+### Assets loaded before the loop starts
+
+The original code started a 3-second `setTimeout` and hoped assets would be ready in time — a race condition by design.
+
+`main.ts` calls `Promise.all([loadAllAssets(), audio.loadAll(), GameSimulator.load('/game.wasm')])`. The game loop does not start until all three resolve.
+
+---
+
+### Firebase writes isolated from gameplay
+
+In the original, `mainDB.updateUserData(...)` was called directly from inside the `death()` function.
+
+In the refactored code, `Game.handleScoreSubmission()` is called once, guarded by a `scoreSubmitted` flag, and only triggered when the scene transitions to `GameOver`. The simulation never knows the database exists.
+
+---
+
+## Packages
+
+### Runtime
+
+#### `firebase@^10`
+Firestore v10 modular. Only `firebase/app` and `firebase/firestore` are imported — tree-shaking removes everything else. Split into a separate chunk so it does not block gameplay code.
+
+---
+
+### Dev
+
+#### `assemblyscript@^0.28`
+Compiles the `assembly/` simulation core to `.wasm`. Uses `runtime: "stub"` for zero-overhead linear memory with no GC. Release build applies `-O3` with shrink level 1, producing a ~3 KB binary.
+
+#### `vite@^8`
+Build tool and dev server. `assetsInclude: ['**/*.wasm']` ensures `game.wasm` is copied to `dist/`.
+
+#### `typescript@^5.5`
+Strict mode: `noUnusedLocals`, `noUnusedParameters`, `strictNullChecks`, `exactOptionalPropertyTypes`, `noImplicitReturns`. The `assembly/` directory is excluded from the main `tsconfig.json` — it has its own that extends `assemblyscript/std/assembly.json`.
+
+---
+
+## Environment Variables
+
+```
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+Copy `.env.example` to `.env` and fill in the values from Firebase Console → Project Settings → Your apps → Web app → Config.
+
+The Firebase Admin SDK service account key (`*-adminsdk-*.json`) must never be committed to git or bundled into a browser build.
+
+---
+
+## Commands
+
+```bash
+bun install             # install dependencies
+bun run build:wasm      # compile assembly/ → public/game.wasm (release, ~3 KB)
+bun run build:wasm:dev  # compile assembly/ → public/game.wasm (debug symbols)
+bun dev                 # build WASM (dev) + start vite dev server at localhost:9000
+bun run build           # build:wasm + tsc --noEmit + vite build → dist/
+bun run preview         # preview production build locally
+bun run deploy          # build + firebase deploy --only hosting
+bun run clean           # remove dist/
+```
+
+---
+
+## Deployment
+
+Deployed to **Firebase Hosting** (free Spark plan).
+
+```bash
+npm install -g firebase-tools
+firebase login
+bun run deploy
+```
+
+Live at: `https://arena-game-2.web.app`
+
+---
+
+## Original (2019)
+
+> *"My graduation project from IT courses. Legacy project development in start 2019 year, my first work."*
+
+The original is preserved at the git history baseline. It used ES5/ES6, webpack, a single bundle, global script tags for Vector math, and Firebase v6. It was a genuine first project and it ran.
+
+This version is what it could become.
