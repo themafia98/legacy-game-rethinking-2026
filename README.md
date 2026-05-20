@@ -232,6 +232,45 @@ Strict mode: `noUnusedLocals`, `noUnusedParameters`, `strictNullChecks`, `exactO
 
 ---
 
+## Testing And Benchmarks
+
+The simulation core is covered at the state-machine level, not through UI snapshots.
+
+- `yarn test`
+- `yarn test:wasm`
+- `yarn bench:wasm`
+- `yarn bench:wasm:sweep`
+
+`test:wasm` runs deterministic regression tests against the compiled `game.wasm`:
+
+- player initialisation
+- enemy staging and pool reset
+- projectile fire-rate cooldown
+- projectile hit -> death state -> slot cleanup
+- coin / food / scroll pickups
+- enemy damage cooldown windows
+- projectile pool exhaustion
+- multi-seed soak invariants across thousands of frames
+
+`bench:wasm` runs one fixed 10,000-frame synthetic scenario for quick regression checks.
+
+`bench:wasm:sweep` runs the same simulation loop across multiple RNG seeds and enemy counts so frame cost drift can be tracked over time.
+
+For browser-side profiling, use Chrome DevTools Performance with a production build and compare:
+
+1. `Scripting` time per frame
+2. `Rendering` / `Painting`
+3. GC events and JS heap growth
+4. frame-time stability, not just average FPS
+
+This matches how engine teams usually split verification:
+
+- deterministic gameplay correctness in simulation tests
+- synthetic CPU benchmarks for hot paths
+- browser or platform profiling for full-frame cost
+
+---
+
 ## Environment Variables
 
 ```
