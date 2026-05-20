@@ -3,6 +3,8 @@
 > A 2019 JavaScript canvas game, fully redesigned in 2026 as a professional TypeScript project.  
 > Not a rewrite. A rethinking.
 
+**Live → [arena-game-2.web.app](https://arena-game-2.web.app)**
+
 ---
 
 ## Origin
@@ -264,15 +266,37 @@ bun run clean           # remove dist/
 
 ## Deployment
 
-Deployed to **Firebase Hosting** (free Spark plan).
+Deployed to **Firebase Hosting** (free Spark plan) — **[arena-game-2.web.app](https://arena-game-2.web.app)**
+
+### CI/CD
+
+Every push to `master` triggers `.github/workflows/deploy.yml`:
+
+1. Install deps (`bun install`)
+2. Compile WASM (`asc assembly/index.ts`)
+3. Type check (`tsc --noEmit`)
+4. Build (`vite build`)
+5. Deploy to Firebase Hosting via `FirebaseExtended/action-hosting-deploy`
+
+Required GitHub repository secrets:
+
+| Secret | Where to get it |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT` | Firebase Console → Project Settings → Service accounts → Generate new private key |
+| `VITE_FIREBASE_API_KEY` | Firebase Console → Project Settings → Your apps → Web app → Config |
+| `VITE_FIREBASE_AUTH_DOMAIN` | same |
+| `VITE_FIREBASE_PROJECT_ID` | same |
+| `VITE_FIREBASE_STORAGE_BUCKET` | same |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | same |
+| `VITE_FIREBASE_APP_ID` | same |
+
+### Manual deploy
 
 ```bash
 npm install -g firebase-tools
 firebase login
 bun run deploy
 ```
-
-Live at: `https://arena-game-2.web.app`
 
 ---
 
