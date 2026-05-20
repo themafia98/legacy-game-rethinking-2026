@@ -1,10 +1,22 @@
 export class Vector2 {
   constructor(
-    readonly x: number,
-    readonly y: number,
-  ) {}
+    x: number,
+    y: number,
+  ) {
+    this.x = x;
+    this.y = y;
+  }
+
+  x: number;
+  y: number;
 
   static readonly zero = new Vector2(0, 0);
+
+  set(x: number, y: number): Vector2 {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
 
   add(other: Vector2): Vector2 {
     return new Vector2(this.x + other.x, this.y + other.y);
@@ -42,6 +54,10 @@ export class Vector2 {
 
   equals(other: Vector2): boolean {
     return this.x === other.x && this.y === other.y;
+  }
+
+  clone(): Vector2 {
+    return new Vector2(this.x, this.y);
   }
 
   toArray(): [number, number] {

@@ -4,7 +4,6 @@ import { ImageKey } from '../types/AssetTypes';
 import { Vector2 } from '../math/Vector2';
 
 export interface MenuLink {
-  label: string;
   position: Vector2;
   size: Vector2;
   isHovered: boolean;

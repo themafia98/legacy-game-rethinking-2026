@@ -30,7 +30,7 @@ That means:
 - **Entities are data.** `PlayerEntity` is a plain data container. It holds sprite animation state. It does not update itself, render itself, or know about audio.
 - **The renderer is the only thing that touches the canvas.** No entity, system, or game logic calls `ctx.drawImage` or `ctx.fillRect`. Ever.
 - **The simulation hot-path runs in WebAssembly.** Player movement, projectile physics, enemy AI, collision detection, item pickups, and combat resolution all run inside a WASM module compiled from AssemblyScript. The renderer and all browser APIs stay in JS.
-- **The game loop is deterministic.** One `GameLoop` drives `update(dt)` → `simulate()` → `render()`. Nothing else mutates state during a frame.
+- **The game loop uses a fixed-step update model.** `GameLoop` accumulates real frame time, runs simulation at a stable 60 Hz step, and renders once per browser frame.
 - **Dependencies are explicit.** Every system receives what it needs through its constructor or function arguments. No hidden globals, no module-level singletons with implicit state.
 - **Configuration is centralized.** Every magic number — sprite coordinates, speeds, health values, bounds, drop chances, stage thresholds — lives in `GameConfig.ts` with a meaningful name.
 
@@ -71,12 +71,13 @@ assembly/                    — WebAssembly simulation core (AssemblyScript)
 
 src/
 ├── core/
-│   ├── GameLoop.ts          — rAF loop, delta-time clamping, start/stop lifecycle
+│   ├── GameLoop.ts          — fixed-step update loop with accumulator and capped catch-up
+│   ├── ScalarRng.ts         — local xorshift RNG for JS-side orchestration (wave spawn variation)
 │   ├── SceneManager.ts      — typed state machine with validated transitions
 │   └── GameConfig.ts        — every constant, coordinate, speed, threshold in one place
 │
 ├── math/
-│   ├── Vector2.ts           — immutable 2D vector: add, scale, normalize, dot, length
+│   ├── Vector2.ts           — small mutable 2D vector for low-allocation runtime paths
 │   └── Rect.ts              — AABB rect
 │
 ├── types/
@@ -127,7 +128,7 @@ src/
 │
 ├── game/
 │   ├── WaveManager.ts       — stage counter, boss/extra-boss count progression
-│   └── Game.ts              — drives update/render pipeline; one simulate() call per frame
+│   └── Game.ts              — drives fixed-step update/render pipeline; WASM is the only gameplay authority
 │
 └── main.ts                  — bootstrap: load assets + WASM in parallel, wire and start
 ```
@@ -158,7 +159,7 @@ const result = simulator.simulate(inputFlags, mouseX, mouseY, dt, now);
 // result.eventFlags carries EVT_DAMAGE | EVT_ENEMY_DIED | EVT_ITEM_PICKED | EVT_PLAYER_DEAD
 ```
 
-The WASM module uses `runtime: "stub"` — no GC, no heap allocator. All data is at fixed offsets in linear memory. The PRNG is Xorshift32 seeded from `performance.now()` (WASM has no `Math.random()`). The release build is ~3 KB.
+The WASM module uses `runtime: "stub"` — no GC, no heap allocator. All data is at fixed offsets in linear memory. The PRNG is Xorshift32 seeded from `performance.now()` (WASM has no `Math.random()`). JS-side wave orchestration also avoids global `Math.random()` and uses a local xorshift RNG. The release build is ~3 KB.
 
 ---
 
@@ -291,14 +292,14 @@ The Firebase Admin SDK service account key (`*-adminsdk-*.json`) must never be c
 ## Commands
 
 ```bash
-bun install             # install dependencies
-bun run build:wasm      # compile assembly/ → public/game.wasm (release, ~3 KB)
-bun run build:wasm:dev  # compile assembly/ → public/game.wasm (debug symbols)
-bun dev                 # build WASM (dev) + start vite dev server at localhost:9000
-bun run build           # build:wasm + tsc --noEmit + vite build → dist/
-bun run preview         # preview production build locally
-bun run deploy          # build + firebase deploy --only hosting
-bun run clean           # remove dist/
+yarn install            # install dependencies
+yarn build:wasm         # compile assembly/ → public/game.wasm (release, ~3 KB)
+yarn build:wasm:dev     # compile assembly/ → public/game.wasm (debug symbols)
+yarn dev                # build WASM (dev) + start vite dev server
+yarn build              # build:wasm + tsc --noEmit + vite build → dist/
+yarn preview            # preview production build locally
+yarn deploy             # build + firebase deploy --only hosting
+yarn clean              # remove dist/
 ```
 
 ---
@@ -311,7 +312,7 @@ Deployed to **Firebase Hosting** (free Spark plan) — **[arena-game-2.web.app](
 
 Every push to `master` triggers `.github/workflows/deploy.yml`:
 
-1. Install deps (`bun install`)
+1. Install deps
 2. Compile WASM (`asc assembly/index.ts`)
 3. Type check (`tsc --noEmit`)
 4. Build (`vite build`)
@@ -334,7 +335,7 @@ Required GitHub repository secrets:
 ```bash
 npm install -g firebase-tools
 firebase login
-bun run deploy
+yarn deploy
 ```
 
 ---

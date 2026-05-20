@@ -1,4 +1,5 @@
 const PLAYER_NAME_KEY = 'arena_player_name';
+const DEFAULT_PLAYER_NAME_PREFIX = 'player-';
 
 export function getStoredPlayerName(): string | null {
   return localStorage.getItem(PLAYER_NAME_KEY);
@@ -47,7 +48,7 @@ export function promptPlayerName(canvas: HTMLCanvasElement): Promise<string> {
     });
 
     cancelBtn.addEventListener('click', () => {
-      finish(`player${Math.random().toFixed(3)}`);
+      finish(`${DEFAULT_PLAYER_NAME_PREFIX}${Date.now().toString(36).slice(-4)}`);
     });
 
     center.appendChild(input);

@@ -12,26 +12,26 @@ import {
 export function updatePlayer(player: PlayerEntity, input: InputManager, dt: number): void {
   const keys = input.getKeys();
   const speed = player.speed * dt;
-
-  let newPos = player.position;
+  let nextX = player.position.x;
+  let nextY = player.position.y;
 
   if (keys.right) {
-    newPos = new Vector2(newPos.x + speed, newPos.y);
+    nextX += speed;
     player.sprite.sheetX = SPRITE_PLAYER_RIGHT.x;
     player.sprite.frameWidth = SPRITE_PLAYER_RIGHT.w;
   }
   if (keys.left) {
-    newPos = new Vector2(newPos.x - speed, newPos.y);
+    nextX -= speed;
     player.sprite.sheetX = SPRITE_PLAYER_LEFT.x;
     player.sprite.frameWidth = SPRITE_PLAYER_LEFT.w;
   }
   if (keys.up) {
-    newPos = new Vector2(newPos.x, newPos.y - speed);
+    nextY -= speed;
     player.sprite.sheetX = SPRITE_PLAYER_UP.x;
     player.sprite.frameWidth = SPRITE_PLAYER_UP.w;
   }
   if (keys.down) {
-    newPos = new Vector2(newPos.x, newPos.y + speed);
+    nextY += speed;
     player.sprite.sheetX = SPRITE_PLAYER_DOWN.x;
     player.sprite.frameWidth = SPRITE_PLAYER_DOWN.w;
   }
@@ -50,22 +50,19 @@ export function updatePlayer(player: PlayerEntity, input: InputManager, dt: numb
     player.sprite.frameWidth = SPRITE_PLAYER_DOWN_RIGHT.w;
   }
 
-  player.position = clampToArena(newPos);
+  clampToArena(player.position, nextX, nextY);
 }
 
-export function clampToArena(pos: Vector2): Vector2 {
-  return new Vector2(
-    Math.max(PLAYER_BOUNDS_LEFT, Math.min(PLAYER_BOUNDS_RIGHT, pos.x)),
-    Math.max(PLAYER_BOUNDS_TOP, Math.min(PLAYER_BOUNDS_BOTTOM, pos.y)),
+export function clampToArena(target: Vector2, x: number, y: number): Vector2 {
+  return target.set(
+    Math.max(PLAYER_BOUNDS_LEFT, Math.min(PLAYER_BOUNDS_RIGHT, x)),
+    Math.max(PLAYER_BOUNDS_TOP, Math.min(PLAYER_BOUNDS_BOTTOM, y)),
   );
 }
 
 export function advanceStartAnimation(player: PlayerEntity, dt: number): boolean {
   if (player.position.y < player.animationTargetPosition.y) {
-    player.position = new Vector2(
-      player.position.x,
-      player.position.y + player.speed * dt,
-    );
+    player.position.set(player.position.x, player.position.y + player.speed * dt);
     return false;
   }
   return true;

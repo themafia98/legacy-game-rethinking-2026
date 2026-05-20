@@ -20,8 +20,12 @@ import { NetworkService } from '../services/NetworkService';
 import { LeaderboardEntry } from '../types/LeaderboardTypes';
 import { SoundId } from '../types/AssetTypes';
 import { Vector2 } from '../math/Vector2';
+import { ScalarRng } from '../core/ScalarRng';
 import { GameSimulator } from '../wasm/GameSimulator';
-import { EVT_DAMAGE, EVT_ENEMY_DIED, EVT_ITEM_PICKED, EVT_PLAYER_DEAD } from '../wasm/SimMemory';
+import {
+  EVT_DAMAGE, EVT_ENEMY_DIED, EVT_ITEM_PICKED, EVT_PLAYER_DEAD,
+  INPUT_UP, INPUT_DOWN, INPUT_LEFT, INPUT_RIGHT, INPUT_FIRED,
+} from '../wasm/SimMemory';
 
 import { updatePlayer, advanceStartAnimation } from '../systems/PlayerSystem';
 import { spawnWave } from '../systems/SpawnSystem';
@@ -31,8 +35,17 @@ import {
   PLAYER_MAX_HEALTH, PLAYER_BASE_DAMAGE, PLAYER_SPEED,
 } from '../core/GameConfig';
 
+enum MenuLinkId {
+  Play,
+  Rating,
+  Return,
+  MenuGameOver,
+  PauseMenu,
+  PauseButton,
+}
+
 interface UILink {
-  label: string;
+  id: MenuLinkId;
   position: Vector2;
   size: Vector2;
   isHovered: boolean;
@@ -48,6 +61,7 @@ export class Game {
   private readonly firebase: FirebaseService;
   private readonly network: NetworkService;
   private readonly sim: GameSimulator;
+  private readonly rng: ScalarRng;
 
   private readonly gameplayRenderer: GameplayRenderer;
   private readonly hudRenderer: HUDRenderer;
@@ -71,6 +85,7 @@ export class Game {
   private tutorialShown = false;
 
   private menuLinks: UILink[] = [];
+  private readonly fallbackPlayerName = `player-${Date.now().toString(36)}`;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -87,6 +102,7 @@ export class Game {
     this.firebase = firebase;
     this.network = network;
     this.sim = sim;
+    this.rng = new ScalarRng(Date.now());
     this.isMobile = isMobile;
     this.isDemoMode = isDemoMode;
 
@@ -108,7 +124,10 @@ export class Game {
     this.buildMenuLinks();
     this.subscribeLeaderboard();
 
-    this.loop = new GameLoop(this.tick);
+    this.loop = new GameLoop({
+      update: this.loopUpdate,
+      render: this.loopRender,
+    });
   }
 
   start(): void {
@@ -127,21 +146,23 @@ export class Game {
     const H = this.renderer.height;
 
     this.menuLinks = [
-      { label: 'PLAY',          position: new Vector2(W / 2 - 160, H / 2.5 - 55),  size: new Vector2(320, 110), isHovered: false },
-      { label: 'RATING',        position: new Vector2(W / 2 - 220, H / 1.8 - 55),  size: new Vector2(440, 110), isHovered: false },
-      { label: 'RETURN',        position: new Vector2(W / 2 - 130, 130),            size: new Vector2(260, 80),  isHovered: false },
-      { label: 'MENU_GAMEOVER', position: new Vector2(350, 430),                    size: new Vector2(110, 30),  isHovered: false },
-      { label: 'PAUSE_MENU',    position: new Vector2(350, 420),                    size: new Vector2(100, 30),  isHovered: false },
-      { label: 'PAUSE_BTN',     position: new Vector2(W - 40, H - 48),              size: new Vector2(50, 50),   isHovered: false },
+      { id: MenuLinkId.Play,         position: new Vector2(W / 2 - 160, H / 2.5 - 55),  size: new Vector2(320, 110), isHovered: false },
+      { id: MenuLinkId.Rating,       position: new Vector2(W / 2 - 220, H / 1.8 - 55),  size: new Vector2(440, 110), isHovered: false },
+      { id: MenuLinkId.Return,       position: new Vector2(W / 2 - 130, 130),            size: new Vector2(260, 80),  isHovered: false },
+      { id: MenuLinkId.MenuGameOver, position: new Vector2(350, 430),                    size: new Vector2(110, 30),  isHovered: false },
+      { id: MenuLinkId.PauseMenu,    position: new Vector2(350, 420),                    size: new Vector2(100, 30),  isHovered: false },
+      { id: MenuLinkId.PauseButton,  position: new Vector2(W - 40, H - 48),              size: new Vector2(50, 50),   isHovered: false },
     ];
   }
 
-  private readonly tick = (dt: number, now: number): void => {
+  private readonly loopUpdate = (dt: number, now: number): void => {
     const mousePos = this.input.getMousePosition();
     this.updateLinkHovers(mousePos);
-
-    this.renderer.beginFrame();
     this.update(dt, now);
+  };
+
+  private readonly loopRender = (dt: number, _now: number): void => {
+    this.renderer.beginFrame();
     this.render(dt);
     this.renderer.commitFrame();
   };
@@ -167,14 +188,14 @@ export class Game {
     }
 
     if (scene === GameScene.Rating) {
-      if (this.isLinkClicked('RETURN', fired)) {
+      if (this.isLinkClicked(MenuLinkId.Return, fired)) {
         this.scene.transitionTo(GameScene.Menu);
       }
       return;
     }
 
     if (scene === GameScene.GameOver) {
-      if (this.isLinkClicked('MENU_GAMEOVER', fired)) {
+      if (this.isLinkClicked(MenuLinkId.MenuGameOver, fired)) {
         this.audio.stopAll();
         this.scene.transitionTo(GameScene.Menu);
       }
@@ -183,8 +204,8 @@ export class Game {
 
     if (scene === GameScene.Pause) {
       const escapePressed = this.input.consumeEscape();
-      const menuLinkClicked = this.isLinkClicked('PAUSE_MENU', fired);
-      const pauseMenuClicked = this.isLinkClicked('PAUSE_BTN', fired);
+      const menuLinkClicked = this.isLinkClicked(MenuLinkId.PauseMenu, fired);
+      const pauseMenuClicked = this.isLinkClicked(MenuLinkId.PauseButton, fired);
 
       if (menuLinkClicked || pauseMenuClicked) {
         this.audio.stopAll();
@@ -199,7 +220,7 @@ export class Game {
 
     if (scene === GameScene.Play) {
       const escapePressed = this.input.consumeEscape();
-      const pauseClicked = this.isLinkClicked('PAUSE_BTN', fired);
+      const pauseClicked = this.isLinkClicked(MenuLinkId.PauseButton, fired);
 
       if (escapePressed || pauseClicked) {
         this.scene.transitionTo(GameScene.Pause);
@@ -217,11 +238,11 @@ export class Game {
       const keys = this.input.getKeys();
       const mousePos = this.input.getMousePosition();
       const inputFlags =
-        (keys.up    ? 0x01 : 0) |
-        (keys.down  ? 0x02 : 0) |
-        (keys.left  ? 0x04 : 0) |
-        (keys.right ? 0x08 : 0) |
-        (fired      ? 0x10 : 0);
+        (keys.up    ? INPUT_UP : 0) |
+        (keys.down  ? INPUT_DOWN : 0) |
+        (keys.left  ? INPUT_LEFT : 0) |
+        (keys.right ? INPUT_RIGHT : 0) |
+        (fired      ? INPUT_FIRED : 0);
 
       // ── One WASM call handles all simulation ──────────────────────────────
       const result = this.sim.simulate(inputFlags, mousePos.x, mousePos.y, dt, now);
@@ -259,7 +280,7 @@ export class Game {
 
   private syncPlayerFromWasm(): void {
     const mem = this.sim.mem;
-    this.player.position = new Vector2(mem.playerPosX, mem.playerPosY);
+    this.player.position.set(mem.playerPosX, mem.playerPosY);
     this.player.health    = mem.playerHealth;
     this.player.points    = mem.playerPoints;
     this.player.damage    = mem.playerDamage;
@@ -272,12 +293,12 @@ export class Game {
     const mousePos = this.input.getMousePosition();
 
     if (scene === GameScene.Menu) {
-      this.menuRenderer.render([this.menuLinks[0]!, this.menuLinks[1]!], this.isDemoMode);
+      this.menuRenderer.render([this.menuLinks[MenuLinkId.Play]!, this.menuLinks[MenuLinkId.Rating]!], this.isDemoMode);
       return;
     }
 
     if (scene === GameScene.Rating) {
-      this.ratingRenderer.render(this.leaderboard, this.menuLinks[2]?.isHovered ?? false, this.isMobile);
+      this.ratingRenderer.render(this.leaderboard, this.menuLinks[MenuLinkId.Return]?.isHovered ?? false, this.isMobile);
       return;
     }
 
@@ -307,7 +328,7 @@ export class Game {
 
     if (scene === GameScene.Pause) {
       this.arenaRenderer.render(false);
-      this.pauseRenderer.render(this.player, this.menuLinks[4]?.isHovered ?? false);
+      this.pauseRenderer.render(this.player, this.menuLinks[MenuLinkId.PauseMenu]?.isHovered ?? false);
       return;
     }
 
@@ -315,20 +336,21 @@ export class Game {
       this.gameOverRenderer.render(
         this.player,
         this.wave.isWinStage(),
-        this.menuLinks[3]?.isHovered ?? false,
+        this.menuLinks[MenuLinkId.MenuGameOver]?.isHovered ?? false,
       );
       return;
     }
   }
 
   private spawnNextWave(): void {
-    spawnWave(this.wave.stage, this.wave.bossCount, this.wave.extraBossCount, this.assets, this.sim);
+    spawnWave(this.wave.stage, this.wave.bossCount, this.wave.extraBossCount, this.assets, this.sim, this.rng);
   }
 
   private startNewGame(): void {
     this.wave.reset();
+    this.rng.reseed(Date.now());
     this.player = new PlayerEntity(this.renderer.width, this.renderer.height);
-    this.player.position = this.player.startPosition;
+    this.player.position.set(this.player.startPosition.x, this.player.startPosition.y);
     this.scoreSubmitted = false;
     this.tutorialShown = false;
     this.fadeRenderer.reset();
@@ -351,20 +373,19 @@ export class Game {
   }
 
   private handleMenuInput(fired: boolean): void {
-    if (this.isLinkClicked('PLAY', fired)) {
+    if (this.isLinkClicked(MenuLinkId.Play, fired)) {
       if (!this.isDemoMode) {
         this.startNewGame();
       }
     }
-    if (this.isLinkClicked('RATING', fired)) {
+    if (this.isLinkClicked(MenuLinkId.Rating, fired)) {
       this.scene.transitionTo(GameScene.Rating);
     }
   }
 
-  private isLinkClicked(label: string, fired: boolean): boolean {
+  private isLinkClicked(id: MenuLinkId, fired: boolean): boolean {
     if (!fired) return false;
-    const link = this.menuLinks.find((l) => l.label === label);
-    return link?.isHovered ?? false;
+    return this.menuLinks[id]?.isHovered ?? false;
   }
 
   private updateLinkHovers(mousePos: Vector2): void {
@@ -380,7 +401,7 @@ export class Game {
   private async handleScoreSubmission(): Promise<void> {
     if (this.scoreSubmitted) return;
     this.scoreSubmitted = true;
-    const name = this.player.playerName || `player${Math.random().toFixed(3)}`;
+    const name = this.player.playerName || this.fallbackPlayerName;
     const ip = this.network.getStoredIp();
     await this.firebase.submitScore({ name, points: this.player.points, ip });
   }

@@ -53,7 +53,7 @@ export class PlayerEntity {
   }
 
   reset(canvasWidth: number, canvasHeight: number): void {
-    this.position = new Vector2(canvasWidth / 2, canvasHeight / 2);
+    this.position.set(canvasWidth / 2, canvasHeight / 2);
     this.health = PLAYER_MAX_HEALTH;
     this.damage = PLAYER_BASE_DAMAGE;
     this.points = 0;

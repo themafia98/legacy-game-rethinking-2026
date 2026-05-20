@@ -27,6 +27,12 @@ export const EVT_ENEMY_DIED  = 0x02;
 export const EVT_ITEM_PICKED = 0x04;
 export const EVT_PLAYER_DEAD = 0x08;
 
+export const INPUT_UP    = 0x01;
+export const INPUT_DOWN  = 0x02;
+export const INPUT_LEFT  = 0x04;
+export const INPUT_RIGHT = 0x08;
+export const INPUT_FIRED = 0x10;
+
 export const ENEMY_TYPE_COMMON     = 0;
 export const ENEMY_TYPE_BOSS       = 1;
 export const ENEMY_TYPE_BOSS_EXTRA = 2;

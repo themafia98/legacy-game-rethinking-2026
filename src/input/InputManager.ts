@@ -46,7 +46,7 @@ export class InputManager {
 
   private readonly onMouseMove = (e: MouseEvent): void => {
     const rect = this.canvas.getBoundingClientRect();
-    this.mousePosition = new Vector2(e.clientX - rect.left, e.clientY - rect.top);
+    this.mousePosition.set(e.clientX - rect.left, e.clientY - rect.top);
   };
 
   private readonly onCanvasClick = (): void => {
@@ -107,7 +107,7 @@ export class InputManager {
 
   setMouseOffset(offset: Vector2): void {
     this.mouseOffset = offset;
-    this.mousePosition = this.mousePosition.add(offset);
+    this.mousePosition.set(this.mousePosition.x + offset.x, this.mousePosition.y + offset.y);
   }
 
   destroy(): void {

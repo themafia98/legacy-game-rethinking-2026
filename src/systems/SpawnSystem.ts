@@ -1,19 +1,8 @@
 import { AssetStore } from '../assets/AssetStore';
+import { ScalarRng } from '../core/ScalarRng';
 import { GameSimulator } from '../wasm/GameSimulator';
 import { ENEMY_TYPE_COMMON, ENEMY_TYPE_BOSS, ENEMY_TYPE_BOSS_EXTRA } from '../wasm/SimMemory';
 import { RANDOM_SIGN_VALUES, RANDOM_SPAWN_SCALE_VALUES } from '../core/GameConfig';
-
-function randomFrom<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
-
-function randomSpeed(): number {
-  return randomFrom(RANDOM_SIGN_VALUES);
-}
-
-function randomSpawnScale(): number {
-  return randomFrom(RANDOM_SPAWN_SCALE_VALUES);
-}
 
 interface EnemyTemplate {
   type: number;
@@ -27,12 +16,13 @@ function writeEnemy(
   tmpl: EnemyTemplate,
   baseX: number,
   baseY: number,
+  rng: ScalarRng,
 ): void {
   sim.mem.writeEnemyStaging(index, {
-    posX:      baseX * randomSpawnScale(),
-    posY:      baseY * randomSpawnScale(),
-    speedX:    randomSpeed(),
-    speedY:    randomSpeed(),
+    posX:      baseX * rng.pick(RANDOM_SPAWN_SCALE_VALUES),
+    posY:      baseY * rng.pick(RANDOM_SPAWN_SCALE_VALUES),
+    speedX:    rng.pick(RANDOM_SIGN_VALUES),
+    speedY:    rng.pick(RANDOM_SIGN_VALUES),
     health:    tmpl.health,
     maxHealth: tmpl.health,
     damage:    tmpl.damage,
@@ -46,6 +36,7 @@ export function spawnWave(
   extraBossCount: number,
   assets: AssetStore,
   sim: GameSimulator,
+  rng: ScalarRng,
 ): void {
   const data = assets.gameData.essenceSettings;
   const spawnPos = assets.gameData.enemyStartPosition;
@@ -58,28 +49,28 @@ export function spawnWave(
 
   if (stage < 7) {
     for (let i = 0; i < stage; i++) {
-      writeEnemy(sim, idx++, birds, spawnPos.x, spawnPos.y);
+      writeEnemy(sim, idx++, birds, spawnPos.x, spawnPos.y, rng);
     }
   } else {
     for (let i = 0; i < 5; i++) {
-      writeEnemy(sim, idx++, birds, spawnPos.x, spawnPos.y);
+      writeEnemy(sim, idx++, birds, spawnPos.x, spawnPos.y, rng);
     }
 
     if (stage >= 7 && stage <= 15) {
       for (let j = 0; j < bossCount; j++) {
-        writeEnemy(sim, idx++, boss, spawnPos.x, spawnPos.y);
+        writeEnemy(sim, idx++, boss, spawnPos.x, spawnPos.y, rng);
       }
     }
 
     if (stage >= 10) {
       for (let j = 0; j < extraBossCount; j++) {
-        writeEnemy(sim, idx++, bossExtra, spawnPos.x, spawnPos.y);
+        writeEnemy(sim, idx++, bossExtra, spawnPos.x, spawnPos.y, rng);
       }
     }
 
     if (stage > 15) {
       for (let i = 0; i < stage - 5; i++) {
-        writeEnemy(sim, idx++, bossExtra, spawnPos.x, spawnPos.y);
+        writeEnemy(sim, idx++, bossExtra, spawnPos.x, spawnPos.y, rng);
       }
     }
   }
