@@ -215,7 +215,7 @@ In the refactored code, `Game.handleScoreSubmission()` is called once, guarded b
 ### Runtime
 
 #### `firebase@^10`
-Firestore v10 modular. Only `firebase/app` and `firebase/firestore` are imported — tree-shaking removes everything else. Split into a separate chunk so it does not block gameplay code.
+Firestore modular client SDK. The browser reads the public leaderboard from Firestore and submits display-safe leaderboard docs directly to Firestore under Security Rules constraints.
 
 ---
 
@@ -288,6 +288,8 @@ The Firebase Admin SDK service account key (`*-adminsdk-*.json`) must never be c
 
 The public leaderboard now stores only display-safe fields (`name`, `points`). Abuse-control metadata must not be stored in publicly readable documents.
 
+On the Firebase Spark plan, Cloud Functions deployment is not available. This project therefore uses a Spark-compatible model: the browser may create only tightly validated leaderboard docs (`name`, `points`) under Firestore Rules. This improves privacy and schema safety, but it does not fully prevent forged scores; that requires a trusted backend on Blaze or an external server.
+
 ---
 
 ## Commands
@@ -299,7 +301,7 @@ yarn build:wasm:dev     # compile assembly/ → public/game.wasm (debug symbols)
 yarn dev                # build WASM (dev) + start vite dev server
 yarn build              # build:wasm + tsc --noEmit + vite build → dist/
 yarn preview            # preview production build locally
-yarn deploy             # build + firebase deploy --only hosting
+yarn deploy             # build + firebase deploy --only hosting,firestore:rules
 yarn clean              # remove dist/
 ```
 
@@ -317,7 +319,7 @@ Every push to `master` triggers `.github/workflows/deploy.yml`:
 2. Compile WASM (`asc assembly/index.ts`)
 3. Type check (`tsc --noEmit`)
 4. Build (`vite build`)
-5. Deploy to Firebase Hosting via `FirebaseExtended/action-hosting-deploy`
+5. Deploy Hosting and Firestore Rules
 
 Required GitHub repository secrets:
 

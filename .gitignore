@@ -2,6 +2,9 @@
 /node_modules
 node_modules
 yarn.lock
+.idea/
+.firebase/
+firebase-debug.log
 
 # Firebase service account key — NEVER commit
 *firebase-adminsdk*.json
