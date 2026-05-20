@@ -2,10 +2,7 @@ import { initializeApp } from 'firebase/app';
 import {
   getFirestore,
   collection,
-  doc,
-  setDoc,
-  query,
-  where,
+  addDoc,
   onSnapshot,
   Firestore,
 } from 'firebase/firestore';
@@ -49,16 +46,11 @@ export class FirebaseService {
     }
 
     this.writeCount++;
-    const id = `_id${Date.now()}`;
-    const docId = `user_${(submission.name + id).replace(/\s/g, '').toLowerCase()}`;
 
     try {
-      await setDoc(doc(collection(this.db, 'users'), docId), {
+      await addDoc(collection(this.db, 'users'), {
         name: submission.name,
         points: submission.points,
-        id: id.slice(1),
-        ip: submission.ip || 'unknown',
-        realPlayer: true,
       });
     } catch (err) {
       console.error('FirebaseService: failed to submit score', err);
@@ -66,10 +58,8 @@ export class FirebaseService {
   }
 
   subscribeLeaderboard(onUpdate: (entries: LeaderboardEntry[]) => void): () => void {
-    const q = query(collection(this.db, 'users'), where('realPlayer', '==', true));
-
     return onSnapshot(
-      q,
+      collection(this.db, 'users'),
       (snapshot) => {
         const entries: LeaderboardEntry[] = [];
         snapshot.forEach((docSnap) => {

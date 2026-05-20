@@ -121,7 +121,6 @@ src/
 │
 ├── services/
 │   ├── FirebaseService.ts   — Firestore v10 modular: submit score, subscribe leaderboard
-│   └── NetworkService.ts    — IP fetch and localStorage cache
 │
 ├── ui/
 │   └── NameInputModal.ts    — DOM modal for name entry, Promise-based
@@ -286,6 +285,8 @@ VITE_FIREBASE_APP_ID=
 Copy `.env.example` to `.env` and fill in the values from Firebase Console → Project Settings → Your apps → Web app → Config.
 
 The Firebase Admin SDK service account key (`*-adminsdk-*.json`) must never be committed to git or bundled into a browser build.
+
+The public leaderboard now stores only display-safe fields (`name`, `points`). Abuse-control metadata must not be stored in publicly readable documents.
 
 ---
 

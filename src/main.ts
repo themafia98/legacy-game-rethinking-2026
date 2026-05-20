@@ -3,7 +3,6 @@ import './style/style.css';
 import { loadAllAssets } from './assets/AssetLoader';
 import { AudioManager } from './audio/AudioManager';
 import { FirebaseService } from './services/FirebaseService';
-import { NetworkService } from './services/NetworkService';
 import { Game } from './game/Game';
 import { promptPlayerName, getStoredPlayerName } from './ui/NameInputModal';
 import { GameSimulator } from './wasm/GameSimulator';
@@ -38,12 +37,10 @@ async function bootstrap(): Promise<void> {
 
   const audio = new AudioManager();
   const firebase = new FirebaseService();
-  const network = new NetworkService();
 
-  const [assets, , , sim] = await Promise.all([
+  const [assets, , sim] = await Promise.all([
     loadAllAssets(),
     audio.loadAll(),
-    network.fetchAndCacheIp(),
     GameSimulator.load('/game.wasm'),
   ]);
 
@@ -55,7 +52,7 @@ async function bootstrap(): Promise<void> {
     void name;
   }
 
-  const game = new Game(canvas, assets, audio, firebase, network, sim, isMobile, isDemoMode);
+  const game = new Game(canvas, assets, audio, firebase, sim, isMobile, isDemoMode);
   game.start();
 }
 

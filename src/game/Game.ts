@@ -16,7 +16,6 @@ import { ArenaRenderer } from '../rendering/ArenaRenderer';
 import { PlayerEntity } from '../entities/PlayerEntity';
 import { WaveManager } from './WaveManager';
 import { FirebaseService } from '../services/FirebaseService';
-import { NetworkService } from '../services/NetworkService';
 import { LeaderboardEntry } from '../types/LeaderboardTypes';
 import { SoundId } from '../types/AssetTypes';
 import { Vector2 } from '../math/Vector2';
@@ -59,7 +58,6 @@ export class Game {
   private readonly input: InputManager;
   private readonly assets: AssetStore;
   private readonly firebase: FirebaseService;
-  private readonly network: NetworkService;
   private readonly sim: GameSimulator;
   private readonly rng: ScalarRng;
 
@@ -92,7 +90,6 @@ export class Game {
     assets: AssetStore,
     audio: AudioManager,
     firebase: FirebaseService,
-    network: NetworkService,
     sim: GameSimulator,
     isMobile: boolean,
     isDemoMode: boolean,
@@ -100,7 +97,6 @@ export class Game {
     this.assets = assets;
     this.audio = audio;
     this.firebase = firebase;
-    this.network = network;
     this.sim = sim;
     this.rng = new ScalarRng(Date.now());
     this.isMobile = isMobile;
@@ -402,8 +398,7 @@ export class Game {
     if (this.scoreSubmitted) return;
     this.scoreSubmitted = true;
     const name = this.player.playerName || this.fallbackPlayerName;
-    const ip = this.network.getStoredIp();
-    await this.firebase.submitScore({ name, points: this.player.points, ip });
+    await this.firebase.submitScore({ name, points: this.player.points });
   }
   destroy(): void {
     this.loop.stop();
