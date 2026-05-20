@@ -1,5 +1,5 @@
 export interface DrawImageParams {
-  image: HTMLImageElement;
+  image: CanvasImageSource;
   srcX: number;
   srcY: number;
   srcW: number;
@@ -31,6 +31,7 @@ export class Renderer {
 
   private readonly buffer: HTMLCanvasElement;
   private readonly bufferCtx: CanvasRenderingContext2D;
+  private readonly patternCache = new WeakMap<HTMLImageElement, CanvasPattern>();
 
   readonly width: number;
   readonly height: number;
@@ -104,7 +105,12 @@ export class Renderer {
   }
 
   drawPattern(image: HTMLImageElement, x: number, y: number, w: number, h: number): void {
-    const pattern = this.bufferCtx.createPattern(image, 'repeat');
+    let pattern = this.patternCache.get(image);
+    if (!pattern) {
+      pattern = this.bufferCtx.createPattern(image, 'repeat') ?? undefined;
+      if (!pattern) return;
+      this.patternCache.set(image, pattern);
+    }
     if (!pattern) return;
     this.bufferCtx.save();
     this.bufferCtx.fillStyle = pattern;
@@ -114,7 +120,7 @@ export class Renderer {
 
   drawLinearGradientRect(
     x: number, y: number, w: number, h: number,
-    stops: Array<{ offset: number; color: string }>,
+    stops: ReadonlyArray<{ offset: number; color: string }>,
   ): void {
     const gradient = this.bufferCtx.createLinearGradient(x, y, x + w, y);
     for (const s of stops) gradient.addColorStop(s.offset, s.color);

@@ -8,6 +8,12 @@ import {
   SPRITE_POINTS_ICON,
 } from '../core/GameConfig';
 
+const HUD_PANEL_GRADIENT_STOPS = [
+  { offset: 0, color: 'rgb(105,105,105)' },
+  { offset: 0.5, color: 'rgb(128,128,128)' },
+  { offset: 1, color: 'rgb(169,169,169)' },
+] as const;
+
 export class HUDRenderer {
   constructor(
     private readonly renderer: Renderer,
@@ -18,11 +24,7 @@ export class HUDRenderer {
     const W = this.renderer.width;
     const H = this.renderer.height;
 
-    this.renderer.drawLinearGradientRect(0, HUD_PANEL_Y, W, HUD_PANEL_H, [
-      { offset: 0, color: 'rgb(105,105,105)' },
-      { offset: 0.5, color: 'rgb(128,128,128)' },
-      { offset: 1, color: 'rgb(169,169,169)' },
-    ]);
+    this.renderer.drawLinearGradientRect(0, HUD_PANEL_Y, W, HUD_PANEL_H, HUD_PANEL_GRADIENT_STOPS);
 
     const hpBarX = isMobile ? W / 4 : W / 2.7;
     const hpBarY = 570;
